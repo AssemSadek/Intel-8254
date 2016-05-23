@@ -1,0 +1,433 @@
+module counter(
+	input clk,
+	input [5:0] controlWord,
+	input gate,
+	inout [15:0]CR,
+    input CRSignal,
+	output reg out,
+	output[15:0] countLatch,
+	output[7:0] statusLatch
+);
+
+localparam m0 = 5'd0;
+localparam m1 = 5'd1;
+localparam m2 = 5'd2;
+localparam m3 = 5'd3;
+localparam m4 = 5'd4;
+localparam m5 = 5'd5;
+
+
+localparam initialization= 5'd6;
+localparam m4_0= 5'd7;
+localparam m4_1= 5'd8;
+localparam m4_2= 5'd9;
+localparam m4_3= 5'd10;
+
+localparam m0_0= 5'd11;
+localparam m0_1= 5'd12;
+localparam m0_2= 5'd13;
+
+localparam m1_0= 5'd14;
+localparam m1_1= 5'd15;
+localparam m1_2= 5'd16;
+
+localparam m5_0= 5'd17;
+localparam m5_1= 5'd18;
+localparam m5_2= 5'd19;
+localparam m5_3= 5'd20;
+
+localparam m2_0= 5'd21;
+localparam m2_1= 5'd22;
+localparam m2_2= 5'd23;
+
+localparam m3_0=5'd24;
+localparam m3_1=5'd25;
+localparam m3_2=5'd26;
+
+
+
+wire[2:0] mode;
+reg gateFlag=1'b1;
+reg [15:0] N;
+reg [15:0] Threshold;
+reg OddFlag;
+reg [15:0]count;
+reg CRFlag = 1'b0;
+assign mode = controlWord[3:1];
+
+reg [4:0] state_reg;
+reg [4:0] state_next;
+
+
+//initially
+always @(mode) begin
+ case(mode)
+   m0: 
+out = 1'b0;
+   m1: 
+begin
+out = 1'b1;
+gateFlag=1'b0;
+end
+   m2:
+	out=1'b1;
+   m3:
+	out=1'b1;
+   m4: 
+    out = 1'b1;
+   
+   m5: begin
+    out = 1'b1;
+    gateFlag=1'b0;
+   end
+ endcase
+end
+
+// new count
+always @(posedge CRSignal) begin
+ CRFlag = 1'b1;
+end
+
+
+// move to nest state
+always @(posedge clk,CRFlag) begin
+ if(CRFlag) begin
+    if((state_reg===m5_3) || (state_reg===m5_1))
+      state_reg <= state_next;
+    else
+	//if(mode!==m2)
+		state_reg = initialization;
+	//else
+		//state_reg<=state_next;
+  end
+  else
+    state_reg <= state_next;
+end
+
+
+
+always @(posedge gate) begin
+  gateFlag = 1'b1;
+end
+
+
+
+// Next_State Logic
+always @(state_reg,mode,count,CRFlag,gateFlag) begin
+
+if (gateFlag==1'b1 && mode==3'd1) begin
+state_next=m1_1;
+count=CR;
+ end
+
+else if (gateFlag==1'b1 && mode==3'd5) begin
+state_next=m5_1;
+count=CR;
+end
+
+
+else begin
+case(state_reg)
+   initialization: begin
+	 case(mode)
+	   m0:
+		state_next = m0_0;
+	   m1: 
+		state_next = m1_0;
+	   m2:
+		state_next = m2_0;
+	   m3:
+		state_next = m3_0;	   
+	   m4:
+	    	state_next = m4_0;
+	   m5: 
+            	state_next = m5_0 ;
+	 endcase
+   end
+   
+//Mode 0 states   
+           m0_0:
+     	 	if(mode==3'b000)
+       			state_next = m0_1;
+           m0_1:
+     		if((mode==3'b000) && (CRFlag==1'b1))
+       			state_next = initialization;
+    
+                else if(count>16'd0)
+       			state_next = m0_1;
+
+                else
+       			state_next = m0_2;
+   
+           m0_2:
+     		if(mode==3'b000&& CRFlag==1'b0)
+       			state_next = m0_2;
+	        else if (mode==3'b000 && CRFlag==1'b1)
+			state_next=initialization;
+
+//Mode 1 states 
+           m1_0:
+     		if(mode==3'b001 && (gateFlag==1'b1))
+       			state_next = m1_1;
+		else 
+			state_next=m1_0;
+           m1_1:
+     		if((mode==3'b001) && (gateFlag==1'b1) 
+       			state_next = initialization;
+     		else if(count>16'd0)
+     			state_next = m1_1;
+
+     		else
+       			state_next = m1_2;
+   
+  	  m1_2:
+     		if(mode==3'b001 && gateFlag==1'b0)
+       			state_next = m1_2;
+		else if (mode==3'b001 && gateFlag==1'b1)
+			state_next=initialization;
+  
+//Mode 4 states
+          m4_0:
+     		if(mode==3'b100)
+       			state_next = m4_1;
+
+          m4_1:
+     		if((mode==3'b100) && (CRFlag==1'b1))
+       			state_next = initialization;
+    
+     		else if(count>16'd0)
+       			state_next = m4_1;
+
+     		else
+       			state_next = m4_2;
+   
+          m4_2:
+     		if(mode==3'b100)
+       			state_next = m4_3;
+   
+          m4_3:
+     		if(mode==3'b100)
+       			if(CRFlag==1'b0)
+         			state_next = m4_3;
+       			else
+         		state_next = initialization;
+
+//Mode 5 states
+          m5_0:
+     		if((mode==3'b101) && (gateFlag==1'b1))
+       			state_next = m5_1;
+     		else
+       		state_next = m5_0;
+   
+   	m5_1:
+     		if((mode==3'b101) && (gateFlag==1'b1))
+       			state_next = m5_0;
+     		else if(count>0) 
+       			state_next = m5_1;
+     		else
+       			state_next = m5_2;
+   
+        m5_2:
+     		if(mode==3'b101)
+       			state_next = m5_3;
+   
+   	m5_3:
+     		if(mode==3'b101)
+       			if(gateFlag==1'b1)
+         			state_next = m5_0;
+       		else
+         		state_next = m5_3;
+
+//Mode 2 states	
+        m2_0:
+		if((mode==3'b010) && (gateFlag==1'b1))
+			state_next=m2_1;
+		else if(mode==3'b010)
+			state_next=m2_0;
+        m2_1:
+		if((mode==3'b010) && (gateFlag==1'b1) && (count >16'd2))
+			state_next=m2_1;
+		else if ((mode==3'b010) && (gateFlag==1'b1) && (count  == 16'd2))
+			state_next=m2_2;
+		else if ((mode==3'b010) && (gateFlag==1'b0))
+			state_next=m2_1;
+        m2_2:
+		if((mode==3'b010) && (gateFlag==1'b1))
+			state_next=m2_0;
+		else if((mode==3'b010))
+			state_next=m2_2;
+
+//Mode 3 states
+        m3_0:
+		if((mode==3'b011) && (gateFlag==1'b1))
+			state_next=m3_1;
+		else if(mode==3'b011)
+			state_next=m3_0;
+        m3_1:
+		if((mode==3'b011) && (gateFlag==1'b1) && (count > Threshold))
+			state_next=m3_1;
+		else if ((mode==3'b011) && (gateFlag==1'b1) && (count  == Threshold))
+			state_next=m3_2;
+` 	        else if ((mode==3'b011) && (gateFlag==1'b0))
+			state_next=m3_1;
+        m3_2:
+		if((mode==3'b011) && (gateFlag==1'b1) && (count > 16'd1))
+			state_next=m3_0;
+		else if((mode==3'b011))
+			state_next=m3_2;
+    
+ 
+    default: ;
+ endcase
+end
+end
+
+
+// Moore Output Logic
+always @(state_reg,posedge clk) begin
+ case(state_reg)
+  initialization: begin
+    case(mode)
+      m0: 
+	begin
+       out=1'b0;
+       CRFlag = 1'b0;
+      end
+      m1: 
+	begin
+	//gateFlag=1'b0;
+       out=1'b1;
+       CRFlag = 1'b0;
+      end
+      m2: 
+	begin
+	out=1'b1;
+	CRFlag = 1'b0;
+      end
+      m3: 
+	begin
+	out=1'b1;
+	CRFlag = 1'b0;
+	N=CR;
+	if(CR[0]==1'b1)
+	Threshold=((N-1)>>>1)+1;
+	else
+	Threshold=(N>>>1)+1;
+    end
+      m4: begin
+       out=1'b1;
+       CRFlag = 1'b0;
+      end
+      
+	  m5: begin
+       out=1'b1;
+       CRFlag = 1'b0;
+      end
+    endcase
+  end
+  
+//Mode 0  
+  m0_0: begin
+    count = CR;
+    out = 1'b0;
+  end
+  
+  m0_1: begin
+   out=1'b0; 
+    if(gate)
+      count = count-1;
+  end
+  
+  m0_2:
+   out = 1'b1;
+
+//Mode 1   
+m1_0: begin
+    count = CR;
+    out = 1'b1;
+  end
+  
+  m1_1: begin
+   out=1'b0; 
+   count = count-1;
+gateFlag=1'b0;
+  end
+  m1_2:
+   out = 1'b1; 
+  
+//Mode 4  
+  m4_0: begin
+    count = CR;
+    out = 1'b1;
+  end
+  
+  m4_1: begin
+   out=1'b1; 
+    if(gate)
+      count = count-1;
+  end
+  
+  m4_2:
+   out = 1'b0; 
+
+  m4_3: 
+   out = 1'b1;
+
+   
+//Mode 5
+  m5_0: begin
+    count = CR;
+    out = 1'b1;
+  end
+
+  m5_1: begin
+    gateFlag = 1'b0;
+    out = 1'b1;
+    count = count-1;
+  end
+
+  m5_2:
+    out = 1'b0;
+
+  m5_3:
+    out = 1'b1;
+
+//Mode 2
+m2_0: begin
+   count = CR;
+   out=1'b1; 
+    //if(gate)
+     // count = count-1;
+  end
+m2_1: begin
+   out=1'b1; 
+    if(gate)
+      count = count-1;
+  end
+m2_2: begin
+   out=1'b0; 
+    //if(gate)
+      //count = count-1;
+  end
+
+//Mode 3
+m3_0: begin
+   count = CR;
+   out=1'b1; 
+    //if(gate)
+     // count = count-1;
+  end
+m3_1: begin
+   out=1'b1; 
+    if(gate)
+      count = count-1;
+  end
+m3_2: begin
+   out=1'b0; 
+    if(gate)
+      count = count-1;
+  end
+   
+ endcase
+end
+endmodule 

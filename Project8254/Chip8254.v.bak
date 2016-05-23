@@ -1,0 +1,40 @@
+module Chip8254(
+
+inout [7:0] data,
+input RD,
+input WR,
+input CS,
+input A0,
+input A1,
+input clk0,
+input clk1,
+input clk2,
+input gate0,
+input gate1,
+input gate2
+);
+
+wire out0;
+wire out1;
+wire out2;
+
+wire cw_0;
+wire cw_1;
+wire cw_2;
+wire [3:0] EnabStatusLatches_;
+
+assign cw0=cw_0;
+assign cw1=cw_1;
+assign cw2=cw_2;
+assign EnabStatusLatches = EnabStatusLatches_;
+
+Read_Write(Read,Write,ChipSelect,A0,A1,Read_Enable,Write_Enable);
+
+
+counter1 c0(clk0,cw_0,gate0,Data,ws,EnabStatusLatches_[0],out0,cl0,sl0);
+counter1 c1(clk1,cw_1,gate1,Data,ws,EnabStatusLatches_[1],out1,cl1,sl1);
+counter1 c2(clk2,cw_2,gate2,Data,ws,EnabStatusLatches_[2],out2,cl2,sl2);
+ControlRegister CRG(Data,cw0,cw1,cw2,EnabStatusLatches,cw_0,cw_1,cw_2,EnabStatusLatches_);
+
+
+endmodule
